@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SafeNet AI</title>
+  <style>
+    body {
+      font-family: 'Poppins', sans-serif;
+      background: radial-gradient(circle at top, #0f172a, #020617);
+      color: white;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      text-align: center;
+      overflow-x: hidden;
+      padding: 20px;
+    }
+    h1 {
+      font-size: 2.8rem;
+      background: linear-gradient(90deg, #38bdf8, #818cf8);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 0.2em;
+    }
+    p {
+      font-size: 1.1rem;
+      margin-bottom: 1.5em;
+      color: #cbd5e1;
+    }
+    .glass {
+      background: rgba(255,255,255,0.1);
+      backdrop-filter: blur(10px);
+      border-radius: 20px;
+      padding: 30px;
+      box-shadow: 0 4px 30px rgba(0,0,0,0.4);
+      width: 430px;
+      transition: transform 0.3s ease-in-out;
+      margin-bottom: 2em;
+    }
+    .glass:hover { transform: scale(1.02); }
+    input[type="text"], input[type="file"] {
+      width: 100%;
+      padding: 12px;
+      border: none;
+      border-radius: 10px;
+      margin-top: 10px;
+      font-size: 1rem;
+      text-align: center;
+      background: rgba(255,255,255,0.2);
+      color: white;
+      box-sizing: border-box;
+    }
+    button {
+      margin-top: 20px;
+      padding: 12px 25px;
+      border: none;
+      border-radius: 10px;
+      background: linear-gradient(90deg, #06b6d4, #3b82f6);
+      color: white;
+      font-size: 1rem;
+      font-weight: bold;
+      cursor: pointer;
+      transition: background 0.3s ease-in-out;
+      width: 100%;
+      box-sizing: border-box;
+    }
+    button:hover {
+      background: linear-gradient(90deg, #3b82f6, #06b6d4);
+    }
+    .loader {
+      border: 5px solid rgba(255,255,255,0.2);
+      border-top: 5px solid #38bdf8;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      display: none;
+      margin: 20px auto;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    .prediction-box {
+      margin-top: 25px;
+      padding: 20px;
+      border-radius: 15px;
+      background: rgba(255,255,255,0.15);
+      animation: fadeIn 0.8s ease-in-out;
+      word-break: break-word;
+    }
+    .prediction-safe { border-left: 5px solid #22c55e; }
+    .prediction-unsafe { border-left: 5px solid #ef4444; }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 15px;
+      font-size: 0.9rem;
+      table-layout: fixed;
+      word-wrap: break-word;
+    }
+    th, td {
+      padding: 8px;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+      text-align: center;
+    }
+    th { color: #38bdf8; }
+    @keyframes highlight {
+      0% { background-color: rgba(16, 185, 129, 0.3); }
+      50% { background-color: rgba(16, 185, 129, 0.6); }
+      100% { background-color: rgba(16, 185, 129, 0); }
+    }
+    .new-highlight { animation: highlight 2s ease-in-out; }
+    .footer {
+      margin-top: 40px;
+      color: #94a3b8;
+      font-size: 0.85rem;
+      text-align: center;
+      user-select: none;
+    }
+  </style>
+</head>
+<body>
+  <h1>SafeNet AI 🛡️</h1>
+  <p>Detect if a website is <strong>safe</strong> or <strong>malicious</strong> instantly with smart AI.</p>
+
+  <div class="glass">
+    <form action="/predict" method="POST" onsubmit="showLoader()">
+      <input type="text" name="url" placeholder="🔗 Enter website URL..." required />
+      <button type="submit">Analyze URL</button>
+    </form>
+
+    <hr style="margin:20px 0;opacity:0.2;" />
+
+    <form action="/batch" method="POST" enctype="multipart/form-data" onsubmit="showLoader()">
+      <label style="display:block; text-align:left; font-weight:bold; margin-bottom: 5px;">
+        📁 Batch Analysis (.txt or .csv)
+      </label>
+      <input type="file" name="file" accept=".txt,.csv" required />
+      <button type="submit">Upload & Analyze</button>
+    </form>
+
+    <div id="loader" class="loader"></div>
+
+    {% if prediction %}
+    <div class="prediction-box {{ 'prediction-safe' if color=='green' else 'prediction-unsafe' }} new-highlight">
+      {{ prediction|safe }}
+    </div>
+    {% endif %}
+
+    {% if batch_results %}
+    <div class="prediction-box prediction-safe new-highlight">
+      <h3>📊 Batch Results</h3>
+      <table>
+        <tr><th>URL</th><th>Status</th><th>Confidence</th></tr>
+        {% for item in batch_results %}
+        <tr>
+          <td style="word-break: break-word;">{{ item.url }}</td>
+          <td style="color: {{ 'lightgreen' if item.label == 'Safe' else 'salmon' }}">{{ item.label }}</td>
+          <td>{{ item.confidence }}%</td>
+        </tr>
+        {% endfor %}
+      </table>
+    </div>
+    {% endif %}
+
+    {% if history %}
+    <div class="prediction-box" style="margin-top: 30px;">
+      <h3>📜 History</h3>
+      <form action="/clear-history" method="POST" style="margin-bottom: 10px;">
+        <button type="submit" style="width: auto; padding: 8px 16px; margin-bottom: 10px; background: linear-gradient(90deg, #06b6d4, #3b82f6); border-radius: 8px; border:none; color: white; cursor: pointer;">Clear History</button>
+      </form>
+      <table>
+        <tr><th>URL</th><th>Status</th><th>Confidence</th></tr>
+        {% for item in history %}
+        <tr>
+          <td style="word-break: break-word;">{{ item.url }}</td>
+          <td style="color: {{ 'lightgreen' if item.label == 'Safe' else 'salmon' }}">{{ item.label }}</td>
+          <td>{{ item.confidence }}%</td>
+        </tr>
+        {% endfor %}
+      </table>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="footer">
+    ⚡ Powered by <span style="font-weight: bold; background: linear-gradient(90deg, #06b6d4, #3b82f6); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">TechStorm</span>
+  </div>
+
+  <script>
+    function showLoader() {
+      document.getElementById("loader").style.display = "block";
+    }
+  </script>
+</body>
+</html>
