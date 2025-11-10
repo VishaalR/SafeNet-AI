@@ -90,4 +90,5 @@ def clear_history():
     return render_template('index.html', prediction=None, batch_results=None, history=[])
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run()
+
